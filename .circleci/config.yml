@@ -9,3 +9,5 @@ jobs:
       - run: go test -race -cover -coverprofile=coverage.txt .
       - run: go test -bench .
       - run: bash <(curl -s https://codecov.io/bash)
+      - store_test_results:
+        path: coverage.txt
