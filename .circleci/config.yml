@@ -1,10 +1,11 @@
 version: 2
 jobs:
-    build:
-        docker:
-            - image: circleci/golang:1.11
-        working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
-        steps:
-            - checkout
-            - run: go get -v -t -d ./...
-            - run: go test -v ./...
+  build:
+    docker:
+      - image: circleci/golang:1.11
+    steps:
+      - checkout
+      - run: go mod download
+      - run: go test -race -cover -coverprofile=coverage.txt .
+      - run: go test -bench .
+      - run: bash <(curl -s https://codecov.io/bash)

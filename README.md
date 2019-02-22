@@ -1,6 +1,6 @@
 # raft-badger
 
-[![CircleCI](https://circleci.com/gh/markthethomas/raft-badger/tree/master.svg?style=svg)](https://circleci.com/gh/markthethomas/raft-badger/tree/master) [![Go Report Card](https://goreportcard.com/badge/github.com/markthethomas/raft-badger)](https://goreportcard.com/report/github.com/markthethomas/raft-badger) [![GoDoc](https://godoc.org/github.com/markthethomas/raft-badger?status.png)](https://godoc.org/github.com/markthethomas/raft-badger) [![Test Coverage](https://api.codeclimate.com/v1/badges/2aef013ae290d9233ac5/test_coverage)](https://codeclimate.com/github/markthethomas/raft-badger/test_coverage)
+[![CircleCI](https://circleci.com/gh/markthethomas/raft-badger/tree/master.svg?style=svg)](https://circleci.com/gh/markthethomas/raft-badger/tree/master) [![Go Report Card](https://goreportcard.com/badge/github.com/markthethomas/raft-badger)](https://goreportcard.com/report/github.com/markthethomas/raft-badger) [![GoDoc](https://godoc.org/github.com/markthethomas/raft-badger?status.png)](https://godoc.org/github.com/markthethomas/raft-badger) [![Maintainability](https://api.codeclimate.com/v1/badges/2aef013ae290d9233ac5/maintainability)](https://codeclimate.com/github/markthethomas/raft-badger/maintainability)
 
 ![Raft + Badger backend plugin](https://cdn.ifelse.io/images/raft-badger.png)
 
@@ -51,7 +51,7 @@ go tool cover -html=coverage.out
 To run the benchmark, run:
 
 ```bash
-go test -bench .
+go test -race -bench .
 ```
 
 ## motivation
