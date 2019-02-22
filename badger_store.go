@@ -31,7 +31,7 @@ type BadgerStore struct {
 	path string
 }
 
-// Options contains all the configuraiton used to open the BoltDB
+// Options contains all the configuration used to open BadgerDB
 type Options struct {
 	// BadgerOptions contains any Badger-specific options
 	BadgerOptions badger.Options
@@ -44,7 +44,7 @@ func NewBadgerStore(path string) (*BadgerStore, error) {
 	return New(Options{Path: path})
 }
 
-// New uses the supplied options to open the BoltDB and prepare it for use as a raft backend.
+// New uses the supplied options to open a badger db and prepare it for use as a raft backend.
 func New(options Options) (*BadgerStore, error) {
 	options.BadgerOptions = badger.DefaultOptions
 	options.BadgerOptions.Dir = options.Path + "/badger"
