@@ -26,4 +26,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 -   n/a
 
 [unreleased]: https://github.com/markthethomas/raft-badger/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/markthethomas/raft-badger/compare/v0.3.0...v1.0.0
+[1.0.0]: https://github.com/markthethomas/raft-badger/releases/tag/1.0.0
