@@ -4,7 +4,7 @@
 
 ![Raft + Badger backend plugin](https://cdn.ifelse.io/images/raft-badger.png)
 
-This repository provides a storage backend for the excellent [raft package](https://github.com/hashicorp/raft) from Hashicorp. Raft is a [distributed consensus](https://en.wikipedia.org/wiki/Consensus_(computer_science)) protocol that has many uses in distributed systems, ranging from fault-tolerant databases to clock synchronization to things like Google's PageRank.
+This repository provides a storage backend for the excellent [raft package](https://github.com/hashicorp/raft) from Hashicorp. Raft is a [distributed consensus](https://en.wikipedia.org/wiki/Consensus_(computer_science)) protocol. Distributed consensus has *many* practical applications, ranging from fault-tolerant databases to clock synchronization to things like Google's PageRank.
 
 This package exports the `BadgerStore`, which is an implementation of both a `LogStore` and `StableStore` (interfaces used by the raft package for reading/writing logs as part of its consensus protocol).
 
