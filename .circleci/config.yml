@@ -10,4 +10,4 @@ jobs:
       - run: go test -bench .
       - run: bash <(curl -s https://codecov.io/bash)
       - store_test_results:
-        path: coverage.txt
+          path: coverage.txt
