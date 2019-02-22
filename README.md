@@ -1,12 +1,20 @@
 # raft-badger
 
-[![CircleCI](https://circleci.com/gh/markthethomas/raft-badger/tree/master.svg?style=svg)](https://circleci.com/gh/markthethomas/raft-badger/tree/master) [![Go Report Card](https://goreportcard.com/badge/github.com/markthethomas/raft-badger)](https://goreportcard.com/report/github.com/markthethomas/raft-badger) [![GoDoc](https://godoc.org/github.com/markthethomas/raft-badger?status.png)](https://godoc.org/github.com/markthethomas/raft-badger) [![Maintainability](https://api.codeclimate.com/v1/badges/2aef013ae290d9233ac5/maintainability)](https://codeclimate.com/github/markthethomas/raft-badger/maintainability)
+[![CircleCI](https://circleci.com/gh/markthethomas/raft-badger/tree/master.svg?style=svg)](https://circleci.com/gh/markthethomas/raft-badger/tree/master) [![Go Report Card](https://goreportcard.com/badge/github.com/markthethomas/raft-badger)](https://goreportcard.com/report/github.com/markthethomas/raft-badger) [![Maintainability](https://api.codeclimate.com/v1/badges/2aef013ae290d9233ac5/maintainability)](https://codeclimate.com/github/markthethomas/raft-badger/maintainability) [![codecov.io Code Coverage](https://img.shields.io/codecov/c/github/markthethomas/raft-badger.svg?maxAge=2592000)](https://codecov.io/github/markthethomas/raft-badger?branch=master) [![HitCount](http://hits.dwyl.io/markthethomas/github.com/markthethomas/raft-badger.svg)](http://hits.dwyl.io/markthethomas/github.com/markthethomas/raft-badger) [![GoDoc](https://godoc.org/github.com/markthethomas/raft-badger?status.png)](https://godoc.org/github.com/markthethomas/raft-badger)
 
 ![Raft + Badger backend plugin](https://cdn.ifelse.io/images/raft-badger.png)
 
 This repository provides a storage backend for the excellent [raft package](https://github.com/hashicorp/raft) from Hashicorp. Raft is a distributed consensus protocol that has many uses in distributed systems, ranging from fault-tolerant databases to clock synchronization to things like Google's PageRank[^1].
 
 This package exports the `BadgerStore`, which is an implementation of both a `LogStore` and `StableStore` (interfaces used by the raft package for reading/writing logs as part of its consensus protocol).
+
+- [raft-badger](#raft-badger)
+  - [installation](#installation)
+  - [usage](#usage)
+  - [developing](#developing)
+  - [motivation](#motivation)
+  - [misc.](#misc)
+  - [todo](#todo)
 
 ## installation
 
