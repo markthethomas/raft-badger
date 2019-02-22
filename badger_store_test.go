@@ -40,80 +40,33 @@ func TestBadgerStore_Implements(t *testing.T) {
 	}
 }
 
-// func TestBoltOptionsTimeout(t *testing.T) {
-// 	fh, err := ioutil.TempFile("", "bolt")
-// 	if err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
-// 	os.Remove(fh.Name())
-// 	defer os.Remove(fh.Name())
-// 	options := Options{
-// 		Path: fh.Name()
-// 	}
-// 	store, err := New(options)
-// 	if err != nil {
-// 		t.Fatalf("err: %v", err)
-// 	}
-// 	defer store.Close()
-// 	// trying to open it again should timeout
-// 	doneCh := make(chan error, 1)
-// 	go func() {
-// 		_, err := New(options)
-// 		doneCh <- err
-// 	}()
-// 	select {
-// 	case err := <-doneCh:
-// 		if err == nil || err.Error() != "timeout" {
-// 			t.Errorf("Expected timeout error but got %v", err)
-// 		}
-// 	case <-time.After(5 * time.Second):
-// 		t.Errorf("Gave up waiting for timeout response")
-// 	}
-// }
+func TestNewBadgerStore(t *testing.T) {
+	fh, err := ioutil.TempDir("", "badger")
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	// os.Remove(fh)
+	defer os.Remove(fh)
 
-// func TestNewBadgerStore(t *testing.T) {
-// 	fh, err := ioutil.TempFile("", "bolt")
-// 	if err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
-// 	os.Remove(fh.Name())
-// 	defer os.Remove(fh.Name())
+	// Successfully creates and returns a store
+	store, err := NewBadgerStore(fh)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
 
-// 	// Successfully creates and returns a store
-// 	store, err := NewBadgerStore(fh.Name())
-// 	if err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
+	// Ensure the file was created
+	if store.path != fh {
+		t.Fatalf("unexpected file path %q", store.path)
+	}
+	if _, err := os.Stat(fh); err != nil {
+		t.Fatalf("err: %s", err)
+	}
 
-// 	// Ensure the file was created
-// 	if store.path != fh.Name() {
-// 		t.Fatalf("unexpected file path %q", store.path)
-// 	}
-// 	if _, err := os.Stat(fh.Name()); err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
-
-// 	// Close the store so we can open again
-// 	if err := store.Close(); err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
-
-// 	// Ensure our tables were created
-// 	db, err := bolt.Open(fh.Name(), dbFileMode, nil)
-// 	if err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
-// 	tx, err := db.Begin(true)
-// 	if err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
-// 	if _, err := tx.CreateBucket([]byte(dbLogs)); err != bolt.ErrBucketExists {
-// 		t.Fatalf("bad: %v", err)
-// 	}
-// 	if _, err := tx.CreateBucket([]byte(dbConf)); err != bolt.ErrBucketExists {
-// 		t.Fatalf("bad: %v", err)
-// 	}
-// }
+	// Close the store so we can open again
+	if err := store.Close(); err != nil {
+		t.Fatalf("err: %s", err)
+	}
+}
 
 func TestBadgerStore_FirstIndex(t *testing.T) {
 	store := testBadgerStore(t)
@@ -276,35 +229,42 @@ func TestBadgerStore_SetLogs(t *testing.T) {
 	}
 }
 
-// func TestBadgerStore_DeleteRange(t *testing.T) {
-// 	store := testBadgerStore(t)
-// 	defer store.Close()
-// 	defer os.Remove(store.path)
+func TestBadgerStore_DeleteRange(t *testing.T) {
+	store := testBadgerStore(t)
+	defer store.Close()
+	defer os.Remove(store.path)
 
-// 	// Create a set of logs
-// 	log1 := testRaftLog(1, "log1")
-// 	log2 := testRaftLog(2, "log2")
-// 	log3 := testRaftLog(3, "log3")
-// 	logs := []*raft.Log{log1, log2, log3}
+	// Create a set of logs
+	log1 := testRaftLog(1, "log1")
+	log2 := testRaftLog(2, "log2")
+	log3 := testRaftLog(3, "log3")
+	logs := []*raft.Log{log1, log2, log3}
 
-// 	// Attempt to store the logs
-// 	if err := store.StoreLogs(logs); err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
+	// Attempt to store the logs
+	if err := store.StoreLogs(logs); err != nil {
+		t.Fatalf("err: %s", err)
+	}
 
-// 	// Attempt to delete a range of logs
-// 	if err := store.DeleteRange(1, 2); err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
+	// Attempt to delete a range of logs
+	if err := store.DeleteRange(1, 2); err != nil {
+		t.Fatalf("err: %s", err)
+	}
 
-// 	// Ensure the logs were deleted
-// 	if err := store.GetLog(1, new(raft.Log)); err != raft.ErrLogNotFound {
-// 		t.Fatalf("should have deleted log1")
-// 	}
-// 	if err := store.GetLog(2, new(raft.Log)); err != raft.ErrLogNotFound {
-// 		t.Fatalf("should have deleted log2")
-// 	}
-// }
+	// Ensure the logs were deleted
+	if err := store.GetLog(1, new(raft.Log)); err != raft.ErrLogNotFound {
+		t.Fatalf("should have deleted log1")
+	}
+	if err := store.GetLog(2, new(raft.Log)); err != raft.ErrLogNotFound {
+		t.Fatalf("should have deleted log2")
+	}
+	log3Dest := new(raft.Log)
+	if err := store.GetLog(3, log3Dest); err != nil {
+		t.Fatalf("should not have deleted log3")
+	}
+	if !reflect.DeepEqual(log3, log3Dest) {
+		t.Fatalf("should not have deleted log3")
+	}
+}
 
 func TestBadgerStore_Set_Get(t *testing.T) {
 	store := testBadgerStore(t)
@@ -333,29 +293,29 @@ func TestBadgerStore_Set_Get(t *testing.T) {
 	}
 }
 
-// func TestBadgerStore_SetUint64_GetUint64(t *testing.T) {
-// 	store := testBadgerStore(t)
-// 	defer store.Close()
-// 	defer os.Remove(store.path)
+func TestBadgerStore_SetUint64_GetUint64(t *testing.T) {
+	store := testBadgerStore(t)
+	defer store.Close()
+	defer os.Remove(store.path)
 
-// 	// Returns error on non-existent key
-// 	if _, err := store.GetUint64([]byte("bad")); err != ErrKeyNotFound {
-// 		t.Fatalf("expected not found error, got: %q", err)
-// 	}
+	// Returns error on non-existent key
+	if _, err := store.GetUint64([]byte("bad")); err != ErrKeyNotFound {
+		t.Fatalf("expected not found error, got: %q", err)
+	}
 
-// 	k, v := []byte("abc"), uint64(123)
+	k, v := []byte("abc"), uint64(123)
 
-// 	// Attempt to set the k/v pair
-// 	if err := store.SetUint64(k, v); err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
+	// Attempt to set the k/v pair
+	if err := store.SetUint64(k, v); err != nil {
+		t.Fatalf("err: %s", err)
+	}
 
-// 	// Read back the value
-// 	val, err := store.GetUint64(k)
-// 	if err != nil {
-// 		t.Fatalf("err: %s", err)
-// 	}
-// 	if val != v {
-// 		t.Fatalf("bad: %v", val)
-// 	}
-// }
+	// Read back the value
+	val, err := store.GetUint64(k)
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	if val != v {
+		t.Fatalf("bad: %v", val)
+	}
+}

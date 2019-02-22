@@ -22,9 +22,10 @@ var (
 	ErrKeyNotFound = errors.New("not found")
 )
 
-// BadgerStore provides access to BoltDB for Raft to store and retrieve
+// BadgerStore provides access to Badger for Raft to store and retrieve
 // log entries. It also provides key/value storage, and can be used as
-// a LogStore and StableStore.
+// a LogStore and StableStore. See https://godoc.org/github.com/hashicorp/raft#StableStore
+// and https://godoc.org/github.com/hashicorp/raft#LogStore
 type BadgerStore struct {
 	db   *badger.DB
 	path string
@@ -59,46 +60,6 @@ func New(options Options) (*BadgerStore, error) {
 	}
 	return store, nil
 }
-
-// type BadgerStore interface {
-// 	// FirstIndex returns the first index written. 0 for no entries.
-// 	FirstIndex() (uint64, error)
-
-// 	// LastIndex returns the last index written. 0 for no entries.
-// 	LastIndex() (uint64, error)
-
-// 	// GetLog gets a log entry at a given index.
-// 	GetLog(index uint64, log *Log) error
-
-// 	// StoreLog stores a log entry.
-// 	StoreLog(log *Log) error
-
-// 	// StoreLogs stores multiple log entries.
-// 	StoreLogs(logs []*Log) error
-
-// 	// DeleteRange deletes a range of log entries. The range is inclusive.
-// 	DeleteRange(min, max uint64) error
-// }
-
-// initialize is used to set up all of the buckets.
-// func (b *BadgerStore) initialize() error {
-// tx, err := b.db.Begin(true)
-// if err != nil {
-// 	return err
-// }
-// defer tx.Rollback()
-
-// // // Create all the buckets
-// // if _, err := tx.CreateBucketIfNotExists(dbLogs); err != nil {
-// // 	return err
-// // }
-// // if _, err := tx.CreateBucketIfNotExists(dbConf); err != nil {
-// // 	return err
-// // }
-
-// return tx.Commit()
-// return nil
-// }
 
 // Close is used to gracefully close the DB connection.
 func (b *BadgerStore) Close() error {
@@ -143,12 +104,14 @@ func (b *BadgerStore) FirstIndex() (uint64, error) {
 // LastIndex returns the last known index from the Raft log.
 func (b *BadgerStore) LastIndex() (uint64, error) {
 	last := uint64(0)
-	err := b.db.View(func(txn *badger.Txn) error {
+	if err := b.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.Reverse = true
 		it := txn.NewIterator(opts)
 		defer it.Close()
-		//
+		// ensure reverse seeking will include the
+		// see https://github.com/dgraph-io/badger/issues/436 and
+		// https://github.com/dgraph-io/badger/issues/347
 		seekKey := append(dbLogsPrefix, 0xFF)
 		it.Seek(seekKey)
 		if it.ValidForPrefix(dbLogsPrefix) {
@@ -161,8 +124,7 @@ func (b *BadgerStore) LastIndex() (uint64, error) {
 			last = idx
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return 0, err
 	}
 	return last, nil
@@ -207,30 +169,35 @@ func (b *BadgerStore) StoreLogs(logs []*raft.Log) error {
 }
 
 // DeleteRange is used to delete logs within a given range inclusively.
-// func (b *BadgerStore) DeleteRange(min, max uint64) error {
-// 	minKey := uint64ToBytes(min)
-
-// 	tx, err := b.db.Begin(true)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	defer tx.Rollback()
-
-// 	curs := tx.Bucket(dbLogs).Cursor()
-// 	for k, _ := curs.Seek(minKey); k != nil; k, _ = curs.Next() {
-// 		// Handle out-of-range log index
-// 		if bytesToUint64(k) > max {
-// 			break
-// 		}
-
-// 		// Delete in-range log index
-// 		if err := curs.Delete(); err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	return tx.Commit()
-// }
+func (b *BadgerStore) DeleteRange(min, max uint64) error {
+	return b.db.Update(func(txn *badger.Txn) error {
+		it := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer it.Close()
+		it.Rewind()
+		// Get the key to start at
+		minKey := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, min))
+		// it.Seek(minKey)
+		for it.Seek(minKey); it.ValidForPrefix(dbLogsPrefix); it.Next() {
+			item := it.Item()
+			// get the index as a strong to convert to uint64
+			k := string(item.Key()[len(dbLogsPrefix):])
+			idx, err := strconv.ParseUint(k, 10, 64)
+			if err != nil {
+				return err
+			}
+			// Handle out-of-range index
+			if idx > max {
+				break
+			}
+			// Delete in-range index
+			delKey := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, idx))
+			if err := txn.Delete(delKey); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
 
 // Set is used to set a key/value set outside of the raft log
 func (b *BadgerStore) Set(k, v []byte) error {
@@ -246,6 +213,9 @@ func (b *BadgerStore) Get(k []byte) ([]byte, error) {
 	defer txn.Discard()
 	key := []byte(fmt.Sprintf("%s%d", dbConfPrefix, k))
 	item, err := txn.Get(key)
+	if item == nil {
+		return nil, ErrKeyNotFound
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -259,23 +229,16 @@ func (b *BadgerStore) Get(k []byte) ([]byte, error) {
 	return append([]byte(nil), v...), nil
 }
 
-// // SetUint64 is like Set, but handles uint64 values
-// func (b *BadgerStore) SetUint64(key []byte, val uint64) error {
-// 	return b.Set(key, uint64ToBytes(val))
-// }
+// SetUint64 is like Set, but handles uint64 values
+func (b *BadgerStore) SetUint64(key []byte, val uint64) error {
+	return b.Set(key, uint64ToBytes(val))
+}
 
-// // GetUint64 is like Get, but handles uint64 values
-// func (b *BadgerStore) GetUint64(key []byte) (uint64, error) {
-// 	val, err := b.Get(key)
-// 	if err != nil {
-// 		return 0, err
-// 	}
-// 	return bytesToUint64(val), nil
-// }
-
-// // Sync performs an fsync on the database file handle. This is not necessary
-// // under normal operation unless NoSync is enabled, in which this forces the
-// // database file to sync against the disk.
-// func (b *BadgerStore) Sync() error {
-// 	return b.db.Sync()
-// }
+// GetUint64 is like Get, but handles uint64 values
+func (b *BadgerStore) GetUint64(key []byte) (uint64, error) {
+	val, err := b.Get(key)
+	if err != nil {
+		return 0, err
+	}
+	return bytesToUint64(val), nil
+}
