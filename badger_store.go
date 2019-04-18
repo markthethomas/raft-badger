@@ -154,49 +154,82 @@ func (b *BadgerStore) StoreLog(log *raft.Log) error {
 
 // StoreLogs is used to store a set of raft logs
 func (b *BadgerStore) StoreLogs(logs []*raft.Log) error {
-	return b.db.Update(func(txn *badger.Txn) error {
-		for _, log := range logs {
-			key := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, log.Index))
-			var out bytes.Buffer
-			enc := gob.NewEncoder(&out)
-			enc.Encode(log)
-			if err := txn.Set(key, out.Bytes()); err != nil {
-				return err
+	txn := b.db.NewTransaction(true)
+	defer txn.Discard()
+	for _, log := range logs {
+		key := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, log.Index))
+		var out bytes.Buffer
+		enc := gob.NewEncoder(&out)
+		enc.Encode(log)
+		if err := txn.Set(key, out.Bytes()); err != nil {
+			// If a transaction range is too big, commit and create a new transaction
+			if err == badger.ErrTxnTooBig {
+				// Commit....
+				if err := txn.Commit(nil); err != nil {
+					return err
+				}
+				// Create new txn...
+				txn = b.db.NewTransaction(true)
+				// try again
+				if err := txn.Set(key, out.Bytes()); err != nil {
+					return err
+				}
 			}
+			return err
 		}
-		return nil
-	})
+	}
+	if err := txn.Commit(nil); err != nil {
+		return err
+	}
+	return nil
 }
 
 // DeleteRange is used to delete logs within a given range inclusively.
 func (b *BadgerStore) DeleteRange(min, max uint64) error {
-	return b.db.Update(func(txn *badger.Txn) error {
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
-		defer it.Close()
-		it.Rewind()
-		// Get the key to start at
-		minKey := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, min))
-		// it.Seek(minKey)
-		for it.Seek(minKey); it.ValidForPrefix(dbLogsPrefix); it.Next() {
-			item := it.Item()
-			// get the index as a strong to convert to uint64
-			k := string(item.Key()[len(dbLogsPrefix):])
-			idx, err := strconv.ParseUint(k, 10, 64)
-			if err != nil {
-				return err
-			}
-			// Handle out-of-range index
-			if idx > max {
-				break
-			}
-			// Delete in-range index
-			delKey := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, idx))
-			if err := txn.Delete(delKey); err != nil {
-				return err
-			}
+	txn := b.db.NewTransaction(true)
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	defer txn.Discard()
+
+	it.Rewind()
+	// Get the key to start at
+	minKey := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, min))
+	// it.Seek(minKey)
+	for it.Seek(minKey); it.ValidForPrefix(dbLogsPrefix); it.Next() {
+		item := it.Item()
+		// get the index as a string to convert to uint64
+		k := string(item.Key()[len(dbLogsPrefix):])
+		idx, err := strconv.ParseUint(k, 10, 64)
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+		// Handle out-of-range index
+		if idx > max {
+			break
+		}
+		// Delete in-range index
+		delKey := []byte(fmt.Sprintf("%s%d", dbLogsPrefix, idx))
+		if err := txn.Delete(delKey); err != nil {
+			// If a transaction range is too big, commit and create a new transaction
+			if err == badger.ErrTxnTooBig {
+				// Commit....
+				if err := txn.Commit(nil); err != nil {
+					return err
+				}
+				// Create new txn...
+				txn = b.db.NewTransaction(true)
+				// try again
+				if err := txn.Delete(delKey); err != nil {
+					return err
+				}
+			}
+			return err
+		}
+	}
+	it.Close()
+	if err := txn.Commit(nil); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Set is used to set a key/value set outside of the raft log
@@ -209,7 +242,7 @@ func (b *BadgerStore) Set(k, v []byte) error {
 
 // Get is used to retrieve a value from the k/v store by key
 func (b *BadgerStore) Get(k []byte) ([]byte, error) {
-	txn := b.db.NewTransaction(true)
+	txn := b.db.NewTransaction(false)
 	defer txn.Discard()
 	key := []byte(fmt.Sprintf("%s%d", dbConfPrefix, k))
 	item, err := txn.Get(key)
