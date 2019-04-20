@@ -51,7 +51,6 @@ func BenchmarkBadgerStore_DeleteRange(b *testing.B) {
 	store := testBadgerStore(b)
 	defer store.Close()
 	defer os.Remove(store.path)
-
 	raftbench.DeleteRange(b, store)
 }
 

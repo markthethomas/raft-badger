@@ -319,3 +319,55 @@ func TestBadgerStore_SetUint64_GetUint64(t *testing.T) {
 		t.Fatalf("bad: %v", val)
 	}
 }
+
+func TestGenerateRanges(t *testing.T) {
+	store := testBadgerStore(t)
+	defer store.Close()
+	defer os.Remove(store.path)
+	maxSize := store.db.MaxBatchSize()
+	testCases := []struct {
+		desc     string
+		from     int
+		to       int64
+		expected int
+	}{
+		{
+			desc:     "Single batch, at max",
+			from:     0,
+			to:       maxSize,
+			expected: 1,
+		},
+		{
+			desc:     "Single batch, under max",
+			from:     1.0,
+			to:       10.0,
+			expected: 1,
+		},
+		{
+			desc:     "Multi batch, just above max",
+			from:     0.0,
+			to:       maxSize + 1,
+			expected: 2,
+		},
+		{
+			desc:     "Multi batch, well above max",
+			from:     0.0,
+			to:       2*maxSize + 1,
+			expected: 3,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			ranges := store.generateRanges(uint64(tC.from), uint64(tC.to), maxSize)
+			from := ranges[0].from
+			to := ranges[len(ranges)-1].to
+			if from != uint64(tC.from) || to != uint64(tC.to) {
+				t.Log(ranges)
+				t.Fatalf("err: range not covered. wanted to %v from %v ranges, got to: %v, from %v", tC.from, tC.to, from, to)
+			}
+			if len(ranges) != tC.expected {
+				t.Fatalf("err: wanted %v ranges, got %v", tC.expected, len(ranges))
+			}
+		})
+	}
+}
